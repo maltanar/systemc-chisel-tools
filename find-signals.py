@@ -15,64 +15,71 @@
 
 # Contact: Yaman Umuroglu <yamanu@idi.ntnu.no>
 
-import re
+import re, sys
 
-# TODO get module filename from command line
-moduleheader="VFrontendController.h"
+def getSignals(templateType, headerData):
+    signals = []
+    signalMatches = re.findall( templateType + r'<.*>.*;', headerData, re.M)
+    for s in signalMatches:
+        match = re.match( templateType + r'<(.*)>\s(.*);', s)
+        signals += [(match.group(2), match.group(1))]
+    signals = dict(signals)
+    return signals
+    
+def getInputSignals(headerData):
+    return getSignals(r'sc_in', headerData)
 
-with open(moduleheader, "r") as myfile:
-    moduledata=myfile.read()
+def getOutputSignals(headerData):
+    return getSignals(r'sc_out', headerData)
 
-# extract lines containin sc_in and sc_out expressions    
-inputSignalMatches = re.findall( r'sc_in<.*>.*;', moduledata, re.M)
-outputSignalMatches = re.findall( r'sc_out<.*>.*;', moduledata, re.M)
+def getInputFIFONames(headerData):
+    inputValidMatches = re.findall( r'sc_in<bool>.*valid;', headerData, re.M)
+    inputFIFONames = []
+    inputSignals=getInputSignals(headerData)
+    outputSignals=getOutputSignals(headerData)
+    for s in inputValidMatches:
+        match = re.match( r'sc_in<bool>\s(.*)_valid;', s)
+        fifoName = match.group(1)
+        if fifoName+"_bits" in inputSignals and fifoName+"_ready" in outputSignals:
+            inputFIFONames += [fifoName]
+        else:
+            print "some FIFO signals for " + fifoName + " not found!"
+    return inputFIFONames
 
-inputSignals = []
-outputSignals = []
+def getOutputFIFONames(headerData):
+    outputValidMatches = re.findall( r'sc_out<bool>.*valid;', headerData, re.M)
+    outputFIFONames = []
+    inputSignals=getInputSignals(headerData)
+    outputSignals=getOutputSignals(headerData)
+    for s in outputValidMatches:
+        match = re.match( r'sc_out<bool>\s(.*)_valid;', s)
+        fifoName = match.group(1)
+        if fifoName+"_bits" in outputSignals and fifoName+"_ready" in inputSignals:
+            outputFIFONames += [fifoName]
+        else:
+            print "some FIFO signals for " + fifoName + " not found!"    
+    return outputFIFONames
+    
 
-# extract the port names and types from the lines
-for s in inputSignalMatches:
-    match = re.match( r'sc_in<(.*)>\s(.*);', s)
-    inputSignals += [(match.group(2), match.group(1))]
+if len(sys.argv) == 2:
+    headerFileName = str(sys.argv[1])
+else:
+    headerFileName = raw_input("Please enter module header filename:")
 
-for s in outputSignalMatches:
-    match = re.match( r'sc_out<(.*)>\s(.*);', s)
-    outputSignals += [(match.group(2), match.group(1))]
+with open(headerFileName, "r") as myfile:
+    data=myfile.read()
 
+inputSignals = getInputSignals(data)
+outputSignals = getOutputSignals(data)
+inputFIFOs = getInputFIFONames(data)
+outputFIFOs = getOutputFIFONames(data)
 
-inputSignals = dict(inputSignals)
-outputSignals = dict(outputSignals)
 
 # TODO fill in SystemC testbench template for
 # - instantiating the component
 # - instantiating the signals to drive I/O
 # - connecting the I/O ports to the instantiated signals
 # - add main testbench SystemC thread code that inits outputs to 0
-
-# extract candidates for decoupled interfaces
-inputValidMatches = re.findall( r'sc_in<bool>.*valid;', moduledata, re.M)
-outputValidMatches = re.findall( r'sc_out<bool>.*valid;', moduledata, re.M)
-
-# see if all three decoupled signal types are present
-inputFIFONames = []
-outputFIFONames = []
-
-for s in inputValidMatches:
-    match = re.match( r'sc_in<bool>\s(.*)_valid;', s)
-    fifoName = match.group(1)
-    if fifoName+"_bits" in inputSignals and fifoName+"_ready" in outputSignals:
-        inputFIFONames += [fifoName]
-    else:
-        print "some FIFO signals for " + fifoName + " not found!"
-
-
-for s in outputValidMatches:
-    match = re.match( r'sc_out<bool>\s(.*)_valid;', s)
-    fifoName = match.group(1)
-    if fifoName+"_bits" in outputSignals and fifoName+"_ready" in inputSignals:
-        outputFIFONames += [fifoName]
-    else:
-        print "some FIFO signals for " + fifoName + " not found!"
 
 # TODO fill in SystemC testbench code that instantiates sc_fifo's and
 # appropriate adapters for connecting to a ready/valid/bits interface
