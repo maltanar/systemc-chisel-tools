@@ -2,7 +2,7 @@
 
 if [ "$#" -ne 2 ]; then
     echo "Usage:"
-    echo "verilate-system.sh <verilog_module> <target_dir>"
+    echo "chisel-to-systemc.sh <verilog_module> <target_dir>"
     exit
 fi
 
