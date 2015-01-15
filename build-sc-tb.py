@@ -143,7 +143,7 @@ for sigName in outputSignals:
 
 
 # Load the template
-with open("testbench-template/testbench.cpp", "r") as templateFile:
+with open("testbench-template/testbench.cpptmpl", "r") as templateFile:
     templateData = str(templateFile.read())
 
 # Add module header #include
