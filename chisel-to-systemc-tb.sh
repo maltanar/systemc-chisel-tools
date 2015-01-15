@@ -1,8 +1,9 @@
 #!/bin/sh
 
-if [ "$#" -ne 2 ]; then
+if [ "$#" -lt 2 ]; then
     echo "Usage:"
-    echo "chisel-to-systemc.sh <verilog_module> <target_dir>"
+    echo "chisel-to-systemc-tb.sh verilog_module target_dir [-t]"
+    echo "If -t is specified, a testbench skeleton will also be generated."
     exit
 fi
 
@@ -31,11 +32,13 @@ cp -f obj_dir/*.cpp $TARGET_DIR/
 cp -f obj_dir/*.h $TARGET_DIR/
 cp -f $VERILATOR_DIR/verilated.cpp $TARGET_DIR
 
-echo "Creating SystemC testbench skeleton for module V$MODULE_NAME..."
-cd $TOOL_DIR
-cp -f testbench-template/Makefile $TARGET_DIR
-cp -f testbench-template/*.h $TARGET_DIR
-./build-sc-tb.py $WORK_DIR/obj_dir/V$MODULE_NAME.h > $TARGET_DIR/main.cpp
+if [ "$3" = "-t" ]; then
+  echo "Creating SystemC testbench skeleton for module V$MODULE_NAME..."
+  cd $TOOL_DIR
+  cp -f testbench-template/Makefile $TARGET_DIR
+  cp -f testbench-template/*.h $TARGET_DIR
+  ./build-sc-tb.py $WORK_DIR/obj_dir/V$MODULE_NAME.h > $TARGET_DIR/main.cpp
+fi
 
 cd $SRC_DIR
 rm -rf $WORK_DIR

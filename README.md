@@ -16,7 +16,9 @@ Writing complicated testbenches in SystemC is much easier compared to Chisel, si
 possible to spawn threads executing in parallel and the entire C++ language is also at your
 disposal for modelling the signal driver/tester behavior.
 
-Usage: chisel-to-systemc.sh <verilog_module> <target_dir>
+Usage: chisel-to-systemc-tb.sh verilog_module target_dir [-t]
+
+If -t is specified, a testbench skeleton will also be generated.
 
 
 Requirements
