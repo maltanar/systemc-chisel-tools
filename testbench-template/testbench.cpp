@@ -1,6 +1,8 @@
 #include <systemc.h>
 #include <iostream>
 #include <string>
+#include "InputFIFOAdapter.h"
+#include "OutputFIFOAdapter.h"
 #include "${MODULE_HEADER}"
 
 using namespace std;
@@ -15,6 +17,8 @@ class ${TESTBENCH_NAME} : public sc_module
 public:  
   ${TESTBENCH_NAME}(sc_module_name name) : 
     sc_module(name), uut("uut"), clk("clk", CLOCK_CYCLE)
+    ${INPUT_FIFO_INIT}
+    ${OUTPUT_FIFO_INIT}
   {
     // TODO handle FIFOs
     
@@ -22,6 +26,10 @@ public:
 ${CONNECT_INPUT_DRIVERS}
     // connect output monitors
 ${CONNECT_OUTPUT_MONITORS}
+
+    // FIFO setup
+${INPUT_FIFO_SETUP}
+${OUTPUT_FIFO_SETUP}
     
     // declare run_tests as SystemC thread
     SC_THREAD(run_tests);
@@ -57,6 +65,14 @@ ${RESET_CODE}
   // signals for manipulating the module
 ${INPUT_DRIVERS}
 ${OUTPUT_MONITORS}
+
+  // FIFO adapters for bridging SystemC FIFOs with signal-level decoupled interfaces
+${INPUT_FIFO_ADAPTERS}
+${OUTPUT_FIFO_ADAPTERS}
+
+  // SystemC FIFO declarations for talking to decoupled interfaces
+${INPUT_FIFOS}
+${OUTPUT_FIFOS}
   
 };
 

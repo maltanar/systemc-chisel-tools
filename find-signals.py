@@ -41,10 +41,10 @@ def getInputFIFONames(headerData):
         match = re.match( r'sc_in<bool>\s(.*)_valid;', s)
         fifoName = match.group(1)
         if fifoName+"_bits" in inputSignals and fifoName+"_ready" in outputSignals:
-            inputFIFONames += [fifoName]
+            inputFIFONames += [(fifoName, inputSignals[fifoName+"_bits"])]
         else:
             print >> sys.stderr, "some FIFO signals for " + fifoName + " not found!"
-    return inputFIFONames
+    return dict(inputFIFONames)
 
 def getOutputFIFONames(headerData):
     outputValidMatches = re.findall( r'sc_out<bool>.*valid;', headerData, re.M)
@@ -55,10 +55,10 @@ def getOutputFIFONames(headerData):
         match = re.match( r'sc_out<bool>\s(.*)_valid;', s)
         fifoName = match.group(1)
         if fifoName+"_bits" in outputSignals and fifoName+"_ready" in inputSignals:
-            outputFIFONames += [fifoName]
+            outputFIFONames += [(fifoName, outputSignals[fifoName+"_bits"])]
         else:
             print >> sys.stderr, "some FIFO signals for " + fifoName + " not found!"    
-    return outputFIFONames
+    return dict(outputFIFONames)
     
 
 if len(sys.argv) == 2:
@@ -85,6 +85,42 @@ outputSignalConns = ""
 
 resetCode = ""
 
+inputFIFODecls = ""
+outputFIFODecls = ""
+inputFIFOAdps = ""
+outputFIFOAdps = ""
+inputFIFOInit = ""
+outputFIFOInit = ""
+inputFIFOSetup = ""
+outputFIFOSetup = ""
+
+# - remove FIFO signals from regular I/O since we handle them separately
+# - build sc_fifo<> declarations
+# - build commands for initialization
+for f in inputFIFOs:
+    del inputSignals[f+"_valid"]
+    del inputSignals[f+"_bits"]
+    del outputSignals[f+"_ready"]
+    fifoDataType = inputFIFOs[f]
+    inputFIFODecls += "  sc_fifo<" + fifoDataType + "> fifo_"+f+";\n"
+    inputFIFOAdps += "  InputFIFOAdapter<" + fifoDataType + "> adp_"+f+";\n"
+    inputFIFOInit += ", adp_" + f + "(\"adp_" + f  + "\")"
+    inputFIFOSetup += "    adp_" + f + ".clk(clk);\n"
+    inputFIFOSetup += "    adp_" + f + ".fifoInput(fifo_" + f + ");\n"
+    inputFIFOSetup += "    adp_" + f + ".bindSignalInterface(uut."+f+"_valid, uut." +f+"_ready, uut."+f+"_bits);\n"
+    
+for f in outputFIFOs:
+    del outputSignals[f+"_valid"]
+    del outputSignals[f+"_bits"]
+    del inputSignals[f+"_ready"]
+    fifoDataType = outputFIFOs[f]
+    outputFIFODecls += "  sc_fifo<" + fifoDataType + "> fifo_"+f+";\n"
+    outputFIFOAdps += "  OutputFIFOAdapter<" + fifoDataType + "> adp_"+f+";\n"
+    outputFIFOInit += ", adp_" + f + "(\"adp_" + f  + "\")"
+    outputFIFOSetup += "    adp_" + f + ".clk(clk);\n"
+    outputFIFOSetup += "    adp_" + f + ".fifoOutput(fifo_" + f + ");\n"
+    outputFIFOSetup += "    adp_" + f + ".bindSignalInterface(uut."+f+"_valid, uut." +f+"_ready, uut."+f+"_bits);\n"
+
 # Handle clock driver manually if there is a clk input
 if "clk" in inputSignals:
     del inputSignals["clk"]
@@ -93,6 +129,7 @@ if "clk" in inputSignals:
     resetCode += "    wait(10*CLOCK_CYCLE);\n"
     resetCode += "    sig_reset = false;\n"
 
+# Build signal declarations and conns for input and outputs
 for sigName in inputSignals:
     sigType = inputSignals[sigName]
     inputSignalDecls += "  sc_signal<" + sigType + "> sig_"+sigName+";\n"
@@ -103,8 +140,6 @@ for sigName in outputSignals:
     sigType = outputSignals[sigName]
     outputSignalDecls += "  sc_signal<" + sigType + "> sig_"+sigName+";\n"
     outputSignalConns += "    uut." + sigName + "(sig_" + sigName + ");\n"
-
-
 
 
 # Load the template
@@ -133,6 +168,18 @@ templateData=templateData.replace("${INIT_INPUT_DRIVERS}", inputSignalInits)
 
 # Reset code
 templateData=templateData.replace("${RESET_CODE}", resetCode)
+
+# FIFO declarations and adapter declarations
+templateData=templateData.replace("${INPUT_FIFO_ADAPTERS}", inputFIFOAdps)
+templateData=templateData.replace("${INPUT_FIFOS}", inputFIFODecls)
+templateData=templateData.replace("${OUTPUT_FIFO_ADAPTERS}", outputFIFOAdps)
+templateData=templateData.replace("${OUTPUT_FIFOS}", outputFIFODecls)
+
+# FIFO setup in constructor
+templateData=templateData.replace("${INPUT_FIFO_INIT}", inputFIFOInit)
+templateData=templateData.replace("${OUTPUT_FIFO_INIT}", outputFIFOInit)
+templateData=templateData.replace("${INPUT_FIFO_SETUP}", inputFIFOSetup)
+templateData=templateData.replace("${OUTPUT_FIFO_SETUP}", outputFIFOSetup)
 
 print templateData
 
