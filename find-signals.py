@@ -43,7 +43,7 @@ def getInputFIFONames(headerData):
         if fifoName+"_bits" in inputSignals and fifoName+"_ready" in outputSignals:
             inputFIFONames += [fifoName]
         else:
-            print "some FIFO signals for " + fifoName + " not found!"
+            print >> sys.stderr, "some FIFO signals for " + fifoName + " not found!"
     return inputFIFONames
 
 def getOutputFIFONames(headerData):
@@ -57,29 +57,84 @@ def getOutputFIFONames(headerData):
         if fifoName+"_bits" in outputSignals and fifoName+"_ready" in inputSignals:
             outputFIFONames += [fifoName]
         else:
-            print "some FIFO signals for " + fifoName + " not found!"    
+            print >> sys.stderr, "some FIFO signals for " + fifoName + " not found!"    
     return outputFIFONames
     
 
 if len(sys.argv) == 2:
     headerFileName = str(sys.argv[1])
 else:
-    headerFileName = raw_input("Please enter module header filename:")
+    print >> sys.stderr, "Please specify input header file name."
+    sys.exit()
 
 with open(headerFileName, "r") as myfile:
     data=myfile.read()
 
+moduleName = re.findall(r'SC_MODULE\((.*)\)', data, re.M)[0]
 inputSignals = getInputSignals(data)
 outputSignals = getOutputSignals(data)
 inputFIFOs = getInputFIFONames(data)
 outputFIFOs = getOutputFIFONames(data)
 
+inputSignalDecls = ""
+inputSignalConns = ""
+inputSignalInits = ""   # initializers for the input drivers
 
-# TODO fill in SystemC testbench template for
-# - instantiating the component
-# - instantiating the signals to drive I/O
-# - connecting the I/O ports to the instantiated signals
-# - add main testbench SystemC thread code that inits outputs to 0
+outputSignalDecls = ""
+outputSignalConns = ""
+
+resetCode = ""
+
+# Handle clock driver manually if there is a clk input
+if "clk" in inputSignals:
+    del inputSignals["clk"]
+    inputSignalConns += "    uut.clk(clk);\n"
+    resetCode += "    sig_reset = true;\n"
+    resetCode += "    wait(10*CLOCK_CYCLE);\n"
+    resetCode += "    sig_reset = false;\n"
+
+for sigName in inputSignals:
+    sigType = inputSignals[sigName]
+    inputSignalDecls += "  sc_signal<" + sigType + "> sig_"+sigName+";\n"
+    inputSignalConns += "    uut." + sigName + "(sig_" + sigName + ");\n"
+    inputSignalInits += "    sig_" + sigName + " = 0;\n"
+
+for sigName in outputSignals:
+    sigType = outputSignals[sigName]
+    outputSignalDecls += "  sc_signal<" + sigType + "> sig_"+sigName+";\n"
+    outputSignalConns += "    uut." + sigName + "(sig_" + sigName + ");\n"
+
+
+
+
+# Load the template
+with open("testbench-template/testbench.cpp", "r") as templateFile:
+    templateData = str(templateFile.read())
+
+# Add module header #include
+templateData=templateData.replace("${MODULE_HEADER}", moduleName+".h")
+
+# Module name
+templateData=templateData.replace("${MODULE_NAME}", moduleName)
+
+# Testbench name
+templateData=templateData.replace("${TESTBENCH_NAME}", "Test"+moduleName)
+
+# Signal declarations
+templateData=templateData.replace("${INPUT_DRIVERS}", inputSignalDecls)
+templateData=templateData.replace("${OUTPUT_MONITORS}", outputSignalDecls)
+
+# Signal connections
+templateData=templateData.replace("${CONNECT_INPUT_DRIVERS}", inputSignalConns)
+templateData=templateData.replace("${CONNECT_OUTPUT_MONITORS}", outputSignalConns)
+
+# Init input drivers
+templateData=templateData.replace("${INIT_INPUT_DRIVERS}", inputSignalInits)
+
+# Reset code
+templateData=templateData.replace("${RESET_CODE}", resetCode)
+
+print templateData
 
 # TODO fill in SystemC testbench code that instantiates sc_fifo's and
 # appropriate adapters for connecting to a ready/valid/bits interface
