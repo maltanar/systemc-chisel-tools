@@ -26,6 +26,11 @@ public:
         sensitive << clk.pos();
     }
 
+    void resetCounters()
+    {
+      m_transferCount = 0;
+    }
+
     void bindSignalInterface(sc_in<bool> & valid, sc_out<bool> & ready, sc_in<T> & data)
     {
         valid.bind(m_valid);
