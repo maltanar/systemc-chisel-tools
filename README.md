@@ -12,7 +12,7 @@ generating simple adapters that support bridging the SystemC-style FIFO interfac
 (sc_fifo<x>) and the signal-level interface. This enables creating independent SystemC
 threads that feed the FIFOs with data.
 
-Writing complicated testbenches in SystemC is much easier compared to Chisel, since it is
+Writing complicated testbenches in SystemC is may sometimes be easier compared to Chisel, since it is
 possible to spawn threads executing in parallel and the entire C++ language is also at your
 disposal for modelling the signal driver/tester behavior.
 
